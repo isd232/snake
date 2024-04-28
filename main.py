@@ -38,9 +38,17 @@ def our_snake(snake_block, snake_list):
     for x in snake_list:
         pygame.draw.rect(game_display, black, [x[0], x[1], snake_block, snake_block])
 
+
 def message(msg, color):
-    mesg = font_style.render(msg, True, color)
-    game_display.blit(mesg, [width / 6, height / 3])
+    line_height = font_style.get_linesize()  # Get the height of each line of text
+    lines = msg.split('\n')  # Split the message into separate lines
+    start_y = height / 3 - (
+                line_height * len(lines) / 2)  # Calculate the starting y position to center the text block vertically
+
+    for i, line in enumerate(lines):
+        mesg = font_style.render(line, True, color)
+        text_rect = mesg.get_rect(center=(width / 2, start_y + i * line_height))
+        game_display.blit(mesg, text_rect)
 
 
 def game_loop():
@@ -64,7 +72,7 @@ def game_loop():
     while not game_over:
         while game_close:
             draw_background()
-            message("You Lost! Press Q-Quit or C-Play Again", red)
+            message("You Lost!\n\nQ-Quit\nC-Play Again", red)
             score(length_of_snake - 1)
             pygame.display.update()
 
