@@ -26,19 +26,29 @@ snake_speed = 15
 font_style = pygame.font.SysFont("bahnschrift", 25)
 score_font = pygame.font.SysFont("comicsansms", 35)
 
+# Load background music and eating sound effect
+pygame.mixer.music.load('assets/02.mp3')
+pygame.mixer.music.set_volume(0.2)
+pygame.mixer.music.play(-1)
+eat_sound = pygame.mixer.Sound('assets/eat_sound.ogg')
+eat_sound.set_volume(0.5)
+
 def draw_apple(apple_position):
     pygame.draw.circle(dis, red, apple_position, snake_block // 2)
     pygame.draw.polygon(dis, green, [(apple_position[0], apple_position[1] - snake_block // 2),
                                      (apple_position[0] + 10, apple_position[1] - 30),
                                      (apple_position[0] + 15, apple_position[1] - 20)])
 
+
 def draw_snake(snake_list):
     for x in snake_list:
         pygame.draw.rect(dis, green, [x[0], x[1], snake_block, snake_block], border_radius=10)
 
+
 def your_score(score):
     value = score_font.render("Your Score: " + str(score), True, black)
     dis.blit(value, [0, 0])
+
 
 def game_loop():
     game_over = False
@@ -50,7 +60,7 @@ def game_loop():
     x1_change = 0
     y1_change = 0
 
-    current_direction = None  # Track the current direction
+    current_direction = None
 
     snake_List = []
     Length_of_snake = 1
@@ -121,10 +131,12 @@ def game_loop():
             foodx = round(random.randrange(0, dis_width - snake_block) / 20.0) * 20.0
             foody = round(random.randrange(0, dis_height - snake_block) / 20.0) * 20.0
             Length_of_snake += 1
+            eat_sound.play()
 
         clock.tick(snake_speed)
 
     pygame.quit()
     quit()
+
 
 game_loop()
