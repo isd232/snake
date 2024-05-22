@@ -1,319 +1,124 @@
 import pygame
+import time
 import random
-import sys
 
-# Initialize Pygame
 pygame.init()
 
-# Display settings
-WIDTH, HEIGHT = 800, 600
-INFO_WIDTH = 200  # Width for the score and high scores display
-game_display = pygame.display.set_mode((WIDTH + INFO_WIDTH, HEIGHT))
-pygame.display.set_caption('Enhanced Snake Game')
+# Define colors
+white = (255, 255, 255)
+yellow = (255, 255, 102)
+black = (0, 0, 0)
+red = (213, 50, 80)
+green = (0, 255, 0)
+blue = (50, 153, 213)
 
-# Colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
+# Define display dimensions
+dis_width = 800
+dis_height = 600
 
-# Load images
-snake_images = {
-    'head_up': pygame.image.load('images/head_up.png').convert_alpha(),
-    'head_down': pygame.image.load('images/head_down.png').convert_alpha(),
-    'head_left': pygame.image.load('images/head_left.png').convert_alpha(),
-    'head_right': pygame.image.load('images/head_right.png').convert_alpha(),
-    'tail_up': pygame.image.load('images/tail_up.png').convert_alpha(),
-    'tail_down': pygame.image.load('images/tail_down.png').convert_alpha(),
-    'tail_left': pygame.image.load('images/tail_left.png').convert_alpha(),
-    'tail_right': pygame.image.load('images/tail_right.png').convert_alpha(),
-    'body_horizontal': pygame.image.load('images/body_horizontal.png').convert_alpha(),
-    'body_vertical': pygame.image.load('images/body_vertical.png').convert_alpha(),
-    'body_topleft': pygame.image.load('images/body_topleft.png').convert_alpha(),
-    'body_topright': pygame.image.load('images/body_topright.png').convert_alpha(),
-    'body_bottomleft': pygame.image.load('images/body_bottomleft.png').convert_alpha(),
-    'body_bottomright': pygame.image.load('images/body_bottomright.png').convert_alpha(),
-    'food': pygame.image.load('images/food.png').convert_alpha()
-}
-background_img = pygame.image.load('images/background.png').convert()
-background_img = pygame.transform.scale(background_img, (WIDTH, HEIGHT))
+# Create display
+dis = pygame.display.set_mode((dis_width, dis_height))
+pygame.display.set_caption('Snake Game')
 
-# Sounds
-eat_sound = pygame.mixer.Sound('assets/eat_sound.ogg')
+clock = pygame.time.Clock()
 
-# Font
-font_style = pygame.font.Font('assets/custom_font.ttf', 50)
+snake_block = 10
+snake_speed = 15
 
-# High Score Functions
-def save_high_score(new_score):
-    try:
-        with open('high_scores.txt', 'r+') as file:
-            scores = [int(line.strip()) for line in file.readlines()]
-            scores.append(new_score)
-            scores = sorted(scores, reverse=True)[:5]
-            file.seek(0)
-            file.truncate()
-            for score in scores:
-                file.write(f"{score}\n")
-    except FileNotFoundError:
-        with open('high_scores.txt', 'w') as file:
-            file.write(f"{new_score}\n")
+font_style = pygame.font.SysFont("bahnschrift", 25)
+score_font = pygame.font.SysFont("comicsansms", 35)
 
-def load_high_scores():
-    try:
-        with open('high_scores.txt', 'r') as file:
-            return [int(line.strip()) for line in file.readlines()]
-    except FileNotFoundError:
-        return []
+def your_score(score):
+    value = score_font.render("Your Score: " + str(score), True, black)
+    dis.blit(value, [0, 0])
 
-# Snake Class
-class Snake:
-    def __init__(self, game_display):
-        self.game_display = game_display
-        self.length = 5  # Start with a length of 5 instead of 1
-        self.positions = [(WIDTH // 2, HEIGHT // 2 + i*20) for i in range(5)]
-        self.direction = random.choice([pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT])
-        self.score = 0
-        self.change_direction = self.direction
+def our_snake(snake_block, snake_list):
+    for x in snake_list:
+        pygame.draw.rect(dis, green, [x[0], x[1], snake_block, snake_block])
 
-    def draw(self):
-        for i, pos in enumerate(self.positions):
-            segment_image = self.get_segment_image(i, pos)
-            if segment_image:
-                self.game_display.blit(segment_image, pos)
-            else:
-                print(f"No image for segment {i} at position {pos}")
+def message(msg, color):
+    mesg = font_style.render(msg, True, color)
+    dis.blit(mesg, [dis_width / 6, dis_height / 3])
 
-    def get_segment_image(self, i, pos):
-        if i == 0:  # Head segment
-            return self.get_head_image(i, pos)
-        elif i == len(self.positions) - 1:  # Tail segment
-            return self.get_tail_image(i, pos)
-        else:  # Body segments
-            return self.get_body_image(i, pos)
+def gameLoop():
+    game_over = False
+    game_close = False
 
-    def get_head_image(self, i, pos):
-        next_segment = self.positions[i + 1] if len(self.positions) > 1 else None
-        if next_segment:
-            if next_segment[1] < pos[1]:  # Moving upwards
-                return snake_images['head_up']
-            elif next_segment[1] > pos[1]:  # Moving downwards
-                return snake_images['head_down']
-            elif next_segment[0] > pos[0]:  # Moving right
-                return snake_images['head_right']
-            elif next_segment[0] < pos[0]:  # Moving left
-                return snake_images['head_left']
-        else:
-            # If the snake has only one segment, choose head image based on current direction
-            direction_map = {
-                pygame.K_UP: 'head_up',
-                pygame.K_DOWN: 'head_down',
-                pygame.K_LEFT: 'head_left',
-                pygame.K_RIGHT: 'head_right'
-            }
-            segment_image = snake_images[direction_map[self.direction]]
+    x1 = dis_width / 2
+    y1 = dis_height / 2
 
-    def get_tail_image(self, i, pos):
-        prev_segment = self.positions[i - 1]
-        if prev_segment[1] < pos[1]:  # Tail follows upward movement
-            return snake_images['tail_up']
-        elif prev_segment[1] > pos[1]:  # Tail follows downward movement
-            return snake_images['tail_down']
-        elif prev_segment[0] > pos[0]:  # Tail follows movement to the right
-            return snake_images['tail_right']
-        elif prev_segment[0] < pos[0]:  # Tail follows movement to the left
-            return snake_images['tail_left']
+    x1_change = 0
+    y1_change = 0
 
-    def get_body_image(self, i, pos):
-        prev_segment = self.positions[i - 1]
-        next_segment = self.positions[i + 1]
-        if prev_segment[0] == next_segment[0]:  # Vertical alignment
-            return snake_images['body_vertical']
-        elif prev_segment[1] == next_segment[1]:  # Horizontal alignment
-            return snake_images['body_horizontal']
-        else:  # Corner segments
-            # Determine the direction of the bend
-            if (prev_segment[0] == pos[0] and next_segment[1] == pos[1]) or (
-                    next_segment[0] == pos[0] and prev_segment[1] == pos[1]):
-                if (prev_segment[1] < pos[1] and next_segment[0] > pos[0]) or (
-                        next_segment[1] < pos[1] and prev_segment[0] > pos[0]):
-                    return snake_images['body_topright']
-                elif (prev_segment[1] > pos[1] and next_segment[0] > pos[0]) or (
-                        next_segment[1] > pos[1] and prev_segment[0] > pos[0]):
-                    return snake_images['body_bottomright']
-                elif (prev_segment[1] > pos[1] and next_segment[0] < pos[0]) or (
-                        next_segment[1] > pos[1] and prev_segment[0] < pos[0]):
-                    return snake_images['body_bottomleft']
-                elif (prev_segment[1] < pos[1] and next_segment[0] < pos[0]) or (
-                        next_segment[1] < pos[1] and prev_segment[0] < pos[0]):
-                    return snake_images['body_topleft']
+    snake_List = []
+    Length_of_snake = 1
 
-    def move(self):
-        head_x, head_y = self.positions[0]
-        new_direction = self.change_direction
+    foodx = round(random.randrange(0, dis_width - snake_block) / 10.0) * 10.0
+    foody = round(random.randrange(0, dis_height - snake_block) / 10.0) * 10.0
 
-        # Check if new direction is opposite to current direction and snake length is more than 1
-        if self.length > 1:
-            if (new_direction == pygame.K_UP and self.direction == pygame.K_DOWN):
-                new_direction = pygame.K_DOWN  # Keep moving down
-            elif (new_direction == pygame.K_DOWN and self.direction == pygame.K_UP):
-                new_direction = pygame.K_UP  # Keep moving up
-            elif (new_direction == pygame.K_LEFT and self.direction == pygame.K_RIGHT):
-                new_direction = pygame.K_RIGHT  # Keep moving right
-            elif (new_direction == pygame.K_RIGHT and self.direction == pygame.K_LEFT):
-                new_direction = pygame.K_LEFT  # Keep moving left
+    while not game_over:
 
-        # Apply the checked or changed direction
-        if new_direction == pygame.K_UP:
-            head_y -= 20
-        elif new_direction == pygame.K_DOWN:
-            head_y += 20
-        elif new_direction == pygame.K_LEFT:
-            head_x -= 20
-        elif new_direction == pygame.K_RIGHT:
-            head_x += 20
-
-        # Handle wrapping
-        head_x = head_x % WIDTH
-        head_y = head_y % HEIGHT
-
-        # Update snake's position
-        new_head = (head_x, head_y)
-        self.positions.insert(0, new_head)  # Insert new head at the beginning of the list
-        if len(self.positions) > self.length:
-            self.positions.pop()
-
-        self.direction = new_direction  # Update direction after move
-
-    def eat(self):
-        self.length += 1
-        self.score += 10
-        eat_sound.play()
-
-    def get_head_position(self):
-        return self.positions[0]
-
-    def check_collision(self):
-        head = self.positions[0]
-        body = self.positions[1:]  # Skip the head
-        return head in body  # Only true if head collides with body
-
-
-# Food Class
-class Food:
-    def __init__(self, game_display, snake_positions):
-        self.game_display = game_display
-        self.position = self.randomize_position(snake_positions)
-
-    def randomize_position(self, snake_positions):
-        while True:
-            new_position = (random.randrange(20, WIDTH - 20, 20), random.randrange(20, HEIGHT - 20, 20))
-            if new_position not in snake_positions:
-                return new_position
-
-    def draw(self):
-        self.game_display.blit(snake_images['food'], self.position)
-
-# Game Class
-class Game:
-    def __init__(self):
-        self.game_display = pygame.display.set_mode((WIDTH + INFO_WIDTH, HEIGHT))
-        self.background_img = pygame.image.load('images/background.png').convert()
-        self.background_img = pygame.transform.scale(self.background_img, (WIDTH, HEIGHT))
-        self.clock = pygame.time.Clock()
-        self.running = True
-
-    def draw_background(self):
-        # Draws the background image on the game display
-        self.game_display.blit(self.background_img, (0, 0))
-
-    def run(self):
-        while self.running:
-            self.main_menu()
-
-    def main_menu(self):
-        menu_running = True
-        while menu_running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_s:
-                        self.game_loop()
-                    elif event.key == pygame.K_v:
-                        self.display_high_scores()
-
-            self.game_display.fill(BLACK)  # Clear screen
-            self.draw_text("Snake Game", 50, WIDTH // 2, HEIGHT // 4)
-            self.draw_text("Press 'S' to Start", 25, WIDTH // 2, HEIGHT // 2)
-            self.draw_text("Press 'V' to View High Scores", 25, WIDTH // 2, 3 * HEIGHT // 4)
+        while game_close == True:
+            dis.fill(blue)
+            message("You Lost! Press Q-Quit or C-Play Again", red)
+            your_score(Length_of_snake - 1)
             pygame.display.update()
-            self.clock.tick(15)
 
-    def game_loop(self):
-        snake = Snake(self.game_display)
-        food = Food(self.game_display, snake.positions)
-        game_loop_running = True
-        move_every = 3  # Move the snake every 3 frames
-        frame_count = 0
-
-        while game_loop_running:
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                elif event.type == pygame.KEYDOWN:
+                if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_q:
-                        game_loop_running = False
-                    elif event.key in [pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT]:
-                        snake.change_direction = event.key
+                        game_over = True
+                        game_close = False
+                    if event.key == pygame.K_c:
+                        gameLoop()
 
-            frame_count += 1
-            if frame_count % move_every == 0:
-                snake.move()
-                if snake.check_collision():
-                    print("Game Over")
-                    game_loop_running = False
-                    save_high_score(snake.score)
-                if snake.get_head_position() == food.position:
-                    snake.eat()
-                    food.position = food.randomize_position(snake.positions)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                game_over = True
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    x1_change = -snake_block
+                    y1_change = 0
+                elif event.key == pygame.K_RIGHT:
+                    x1_change = snake_block
+                    y1_change = 0
+                elif event.key == pygame.K_UP:
+                    y1_change = -snake_block
+                    x1_change = 0
+                elif event.key == pygame.K_DOWN:
+                    y1_change = snake_block
+                    x1_change = 0
 
-            self.game_display.fill(BLACK)  # Clear the screen
-            self.draw_background()
-            snake.draw()
-            food.draw()
-            self.display_scores(snake.score)
-            pygame.display.update()
-            self.clock.tick(60)
-        print("Game Over")
+        if x1 >= dis_width or x1 < 0 or y1 >= dis_height or y1 < 0:
+            game_close = True
+        x1 += x1_change
+        y1 += y1_change
+        dis.fill(blue)
+        pygame.draw.rect(dis, red, [foodx, foody, snake_block, snake_block])
+        snake_Head = []
+        snake_Head.append(x1)
+        snake_Head.append(y1)
+        snake_List.append(snake_Head)
+        if len(snake_List) > Length_of_snake:
+            del snake_List[0]
 
-    def display_scores(self, score):
-        score_text = font_style.render(f"Score: {score}", True, WHITE)
-        high_scores = load_high_scores()
-        high_score_text = font_style.render("High Scores:", True, WHITE)
-        self.game_display.blit(score_text, (WIDTH + 10, 10))
-        self.game_display.blit(high_score_text, (WIDTH + 10, 40))
-        for i, high_score in enumerate(high_scores):
-            hs_text = font_style.render(f"{i + 1}. {high_score}", True, WHITE)
-            self.game_display.blit(hs_text, (WIDTH + 10, 70 + i * 30))
+        for x in snake_List[:-1]:
+            if x == snake_Head:
+                game_close = True
 
-    def display_high_scores(self):
-        high_scores = load_high_scores()
-        self.game_display.fill(BLACK)
-        self.draw_text("High Scores", 50, WIDTH // 2, HEIGHT // 4)
-        start_y = HEIGHT // 3
-        for i, score in enumerate(high_scores):
-            self.draw_text(f"{i + 1}. {score}", 30, WIDTH // 2, start_y + i * 30)
+        our_snake(snake_block, snake_List)
+        your_score(Length_of_snake - 1)
+
         pygame.display.update()
-        self.clock.tick(15)
 
-    def draw_text(self, text, size, x, y):
-        font = pygame.font.Font('assets/custom_font.ttf', size)
-        text_surface = font.render(text, True, WHITE)
-        text_rect = text_surface.get_rect(center=(x, y))
-        self.game_display.blit(text_surface, text_rect)
+        if x1 == foodx and y1 == foody:
+            foodx = round(random.randrange(0, dis_width - snake_block) / 10.0) * 10.0
+            foody = round(random.randrange(0, dis_height - snake_block) / 10.0) * 10.0
+            Length_of_snake += 1
 
-# Main execution
-if __name__ == "__main__":
-    game = Game()
-    game.run()
+        clock.tick(snake_speed)
+
+    pygame.quit()
+    quit()
+
+gameLoop()
